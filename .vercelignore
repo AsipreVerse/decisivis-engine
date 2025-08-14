@@ -1,0 +1,47 @@
+# Python files and dependencies
+*.py
+*.pyc
+__pycache__/
+venv/
+.venv/
+*.pkl
+*.joblib
+
+# Python API directory
+api/
+src/
+tests/
+config/
+models/
+enhanced_features.py
+train_*.py
+auto_retrain.py
+gemini_agent.py
+import_quality_data.py
+test_security.py
+
+# Data files
+football-data/
+backups/
+*.csv
+*.json
+*.sql
+
+# Railway specific
+railway.json
+Procfile
+runtime.txt
+
+# Development
+.git/
+.gitignore
+Makefile
+deploy.sh
+deploy/
+
+# Documentation
+*.md
+LICENSE
+
+# Keep only Next.js dashboard
+!decisivis-dashboard/
