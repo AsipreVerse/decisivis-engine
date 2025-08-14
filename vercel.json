@@ -1,0 +1,24 @@
+{
+  "buildCommand": "cd decisivis-dashboard && npm run build",
+  "installCommand": "cd decisivis-dashboard && npm install --legacy-peer-deps",
+  "devCommand": "cd decisivis-dashboard && npm run dev",
+  "outputDirectory": "decisivis-dashboard/.next",
+  "framework": "nextjs",
+  "rootDirectory": "decisivis-dashboard",
+  "env": {
+    "GEMINI_TEMPERATURE": "0.1",
+    "GEMINI_MODEL": "gemini-pro",
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "decisivis-dashboard/app/api/gemini/analyze/route.ts": {
+      "maxDuration": 30
+    },
+    "decisivis-dashboard/app/api/predict/route.ts": {
+      "maxDuration": 10
+    },
+    "decisivis-dashboard/app/api/train/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}
