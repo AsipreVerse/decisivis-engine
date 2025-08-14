@@ -63,6 +63,7 @@ models/*.pkl
 !package-lock.json
 !tsconfig.json
 !vercel.json
+!railway.json
 
 # Logs
 logs/
