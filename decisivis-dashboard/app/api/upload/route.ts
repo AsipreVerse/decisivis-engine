@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '../auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 
 const PYTHON_API_URL = process.env.PYTHON_API_URL || 'https://web-production-d74c1.up.railway.app'
 const API_KEY = process.env.API_KEY || 'decisivis_api_key_2025_secure_token'
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate data - remove fake shots on target
-    const validatedMatches = matches.filter(match => {
+    const validatedMatches = matches.filter((match: any) => {
       const homeShotsOnTarget = parseInt(match.home_shots_on_target || '0')
       const awayShotsOnTarget = parseInt(match.away_shots_on_target || '0')
       const homeGoals = parseInt(match.home_goals || '0')

@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { Providers } from './providers'
 import Navigation from '@/components/navigation'
 import { getServerSession } from 'next-auth'
-import { authOptions } from './api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 
 export const metadata: Metadata = {
   title: 'Decisivis Dashboard - Football Prediction Engine',

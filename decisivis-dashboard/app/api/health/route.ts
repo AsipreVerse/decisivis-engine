@@ -21,7 +21,7 @@ export async function GET() {
     console.error('Railway API error:', error)
     return NextResponse.json({
       status: 'error',
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       railwayUrl: PYTHON_API_URL,
       timestamp: new Date().toISOString()
     }, { status: 503 })
