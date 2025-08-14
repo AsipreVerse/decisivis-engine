@@ -4,7 +4,6 @@
   "devCommand": "cd decisivis-dashboard && npm run dev",
   "outputDirectory": "decisivis-dashboard/.next",
   "framework": "nextjs",
-  "rootDirectory": "decisivis-dashboard",
   "env": {
     "GEMINI_TEMPERATURE": "0.1",
     "GEMINI_MODEL": "gemini-pro",
