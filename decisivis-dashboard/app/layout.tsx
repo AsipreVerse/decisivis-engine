@@ -1,5 +1,6 @@
 import './globals.css'
 import type { Metadata } from 'next'
+import { Providers } from './providers'
 
 export const metadata: Metadata = {
   title: 'Decisivis Dashboard - Football Prediction Engine',
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 dark:bg-gray-900">{children}</body>
+      <body className="bg-gray-50 dark:bg-gray-900">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   )
 }

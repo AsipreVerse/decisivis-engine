@@ -66,8 +66,12 @@ class StatsResponse(BaseModel):
     recall: float
     f1_score: float
     total_predictions: int
-    model_version: str
+    version: str  # Renamed from model_version to avoid conflict
     last_trained: str
+    
+    model_config = {
+        'protected_namespaces': ()  # Fix pydantic warning
+    }
 
 @app.on_event("startup")
 async def startup_event():
@@ -275,7 +279,7 @@ async def get_stats():
             recall=0.530,
             f1_score=0.530,
             total_predictions=stats[0] if stats else 0,
-            model_version=model_metadata.get('version', 'v1.0'),
+            version=model_metadata.get('version', 'v1.0'),
             last_trained=model_metadata.get('timestamp', datetime.now().isoformat())
         )
         
@@ -288,7 +292,7 @@ async def get_stats():
             recall=0.530,
             f1_score=0.530,
             total_predictions=0,
-            model_version="v1.0",
+            version="v1.0",
             last_trained=datetime.now().isoformat()
         )
 
