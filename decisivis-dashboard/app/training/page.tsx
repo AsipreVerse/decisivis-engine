@@ -59,55 +59,76 @@ export default function TrainingPage() {
 
   const startTraining = async () => {
     setIsTraining(true)
-    setProgress(prev => ({ ...prev, status: 'preparing', message: 'Loading training data...' }))
+    setProgress(prev => ({ ...prev, status: 'preparing', message: 'Initializing training...' }))
 
     try {
-      // Simulate training progress
-      for (let epoch = 1; epoch <= trainingConfig.epochs; epoch++) {
-        if (!isTraining) break
-
-        setProgress(prev => ({
-          ...prev,
-          status: 'training',
-          epoch,
-          accuracy: Math.min(0.533 + (epoch / 1000), 0.70),
-          loss: Math.max(1.0 - (epoch / 200), 0.3),
-          timeElapsed: epoch * 0.5,
-          estimatedTimeRemaining: (trainingConfig.epochs - epoch) * 0.5,
-          message: `Training epoch ${epoch}/${trainingConfig.epochs}`
-        }))
-
-        // Simulate epoch delay
-        await new Promise(resolve => setTimeout(resolve, 500))
-      }
-
-      // Call actual training API
+      // Start training via API
       const response = await fetch('/api/train', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(trainingConfig)
       })
 
-      const result = await response.json()
+      if (!response.ok) {
+        throw new Error('Failed to start training')
+      }
 
-      setProgress(prev => ({
-        ...prev,
-        status: 'completed',
-        accuracy: result.accuracy || 0.533,
-        message: `Training completed! Accuracy: ${(result.accuracy * 100).toFixed(1)}%`
-      }))
+      // Connect to SSE for real-time progress
+      const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_PYTHON_API_URL || 'https://web-production-d74c1.up.railway.app'}/training/progress`)
+      
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+        setProgress(prev => ({
+          ...prev,
+          status: data.status || prev.status,
+          epoch: data.epoch || prev.epoch,
+          totalEpochs: data.total_epochs || prev.totalEpochs,
+          accuracy: data.accuracy || prev.accuracy,
+          loss: data.loss || prev.loss,
+          message: data.message || prev.message,
+          timeElapsed: prev.timeElapsed + 1,
+          estimatedTimeRemaining: Math.max(0, (data.total_epochs - data.epoch) * 2)
+        }))
+
+        // Close connection if training completed or failed
+        if (data.status === 'completed' || data.status === 'error') {
+          eventSource.close()
+          setIsTraining(false)
+        }
+      }
+
+      eventSource.onerror = (error) => {
+        console.error('SSE error:', error)
+        eventSource.close()
+        setProgress(prev => ({
+          ...prev,
+          status: 'error',
+          message: 'Lost connection to training server'
+        }))
+        setIsTraining(false)
+      }
+
+      // Store event source for cleanup
+      (window as any).trainingEventSource = eventSource
+
     } catch (error) {
+      console.error('Training error:', error)
       setProgress(prev => ({
         ...prev,
         status: 'error',
         message: 'Training failed. Please check logs.'
       }))
-    } finally {
       setIsTraining(false)
     }
   }
 
   const stopTraining = () => {
+    // Close SSE connection if exists
+    if ((window as any).trainingEventSource) {
+      (window as any).trainingEventSource.close()
+      delete (window as any).trainingEventSource
+    }
+    
     setIsTraining(false)
     setProgress(prev => ({
       ...prev,

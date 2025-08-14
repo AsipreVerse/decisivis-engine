@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Pool } from 'pg'
-import { geminiClient } from '@/lib/gemini-client'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '../auth/[...nextauth]/route'
 
-// Database connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-})
+const PYTHON_API_URL = process.env.PYTHON_API_URL || 'https://web-production-d74c1.up.railway.app'
+const API_KEY = process.env.API_KEY || 'decisivis_api_key_2025_secure_token'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { homeTeam, awayTeam, features } = await request.json()
     
     if (!homeTeam || !awayTeam) {
@@ -19,44 +22,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Mock prediction logic (in production, this would call the Python model)
-    const predictions = generatePrediction(features)
-    
-    // Log prediction to database
-    const client = await pool.connect()
-    try {
-      await client.query(
-        `INSERT INTO predictions (
-          home_team, away_team, predicted_result, 
-          home_prob, draw_prob, away_prob, 
-          confidence, model_version, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-        RETURNING id`,
-        [
-          homeTeam,
-          awayTeam,
-          predictions.result,
-          predictions.probabilities.home,
-          predictions.probabilities.draw,
-          predictions.probabilities.away,
-          predictions.confidence,
-          'v1.0.0'
-        ]
-      )
-    } finally {
-      client.release()
-    }
-
-    // Add to Gemini analysis buffer if match is completed
-    if (features.actualResult) {
-      geminiClient.addPrediction({
-        matchId: features.matchId || 0,
-        predicted: predictions.result,
-        actual: features.actualResult,
-        confidence: predictions.confidence,
-        features: features,
-        correct: predictions.result === features.actualResult
+    // Call Python API on Railway
+    const response = await fetch(`${PYTHON_API_URL}/predict`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': API_KEY
+      },
+      body: JSON.stringify({
+        home_team: homeTeam,
+        away_team: awayTeam,
+        features: features
       })
+    })
+
+    let predictions
+    
+    if (!response.ok) {
+      // Fallback to local prediction if API is down
+      console.warn('Railway API unavailable, using fallback prediction')
+      predictions = generatePrediction(features)
+    } else {
+      // Use response from Railway API
+      const data = await response.json()
+      predictions = {
+        result: data.prediction,
+        confidence: data.confidence,
+        probabilities: data.probabilities
+      }
     }
 
     return NextResponse.json({
@@ -64,7 +57,8 @@ export async function POST(request: NextRequest) {
       analysis: {
         homeTeam,
         awayTeam,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        source: response.ok ? 'railway-api' : 'fallback'
       }
     })
   } catch (error) {
@@ -130,29 +124,31 @@ function generatePrediction(features: any) {
 
 export async function GET() {
   try {
-    // Get recent predictions from database
-    const client = await pool.connect()
-    try {
-      const result = await client.query(
-        `SELECT 
-          COUNT(*) as total,
-          AVG(confidence) as avg_confidence,
-          SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) as accuracy
-        FROM predictions
-        WHERE created_at >= NOW() - INTERVAL '7 days'`
-      )
-      
-      return NextResponse.json({
-        stats: result.rows[0],
-        message: 'Prediction service is running'
-      })
-    } finally {
-      client.release()
+    // Call Railway API stats endpoint
+    const response = await fetch(`${PYTHON_API_URL}/stats`, {
+      headers: {
+        'X-API-Key': API_KEY
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch stats')
     }
+    
+    const stats = await response.json()
+    
+    return NextResponse.json({
+      stats,
+      message: 'Prediction service is running',
+      api_status: 'connected'
+    })
   } catch (error) {
     console.error('Stats error:', error)
     return NextResponse.json(
-      { error: 'Failed to get prediction stats' },
+      { 
+        error: 'Failed to get prediction stats',
+        api_status: 'disconnected'
+      },
       { status: 500 }
     )
   }

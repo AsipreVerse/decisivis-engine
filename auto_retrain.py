@@ -3,14 +3,13 @@
 Automated Retraining Script with Gemini Integration
 Targets 70%+ accuracy through continuous improvement
 Temperature: 0.1 for maximum precision
+SECURITY: No hardcoded credentials
 """
 
 import os
 import sys
 import pickle
 import json
-import psycopg2
-from psycopg2.extras import RealDictCursor
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
@@ -21,13 +20,20 @@ from enhanced_features import EnhancedFeatureEngineer
 import schedule
 import time
 
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from config.secure_config import get_config
+from config.secure_database import get_secure_db
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgres://neondb_owner:npg_0p2JovChjXZy@ep-misty-river-aba2zdk3-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require")
+config = get_config()
+db = get_secure_db()
 MODEL_PATH = "models/optimal_model.pkl"
 IMPROVEMENT_THRESHOLD = 0.01  # 1% improvement required
 MIN_ACCURACY = 0.68  # Alert if below this

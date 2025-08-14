@@ -3,24 +3,44 @@
 FastAPI server for Decisivis football prediction model
 Deployed on Railway for real-time predictions
 Temperature: 0.1 for maximum precision
+SECURITY: No hardcoded credentials
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header, Security, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import hashlib
+import hmac
+import secrets
 import pickle
 import pandas as pd
 import numpy as np
-import psycopg2
-from psycopg2.extras import RealDictCursor
 import os
-from datetime import datetime
+import sys
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import logging
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from config.secure_config import get_config
+from config.secure_database import get_secure_db
+from config.auth import get_auth
+from sse_handler import sse_manager, training_progress_stream
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# API Security - Use secure config
+config = get_config()
+auth = get_auth()
+API_KEY = config.api_key
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+security = HTTPBearer(auto_error=False)
 
 # Initialize FastAPI
 app = FastAPI(
@@ -29,12 +49,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for Vercel dashboard
+# Enable CORS - Secure configuration
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://decisivis-engine.vercel.app",
+    "https://decisivis-dashboard.vercel.app"
+]
+
+# Never allow wildcard in production
+if config.is_production:
+    cors_origins = ALLOWED_ORIGINS
+else:
+    cors_origins = ALLOWED_ORIGINS + ["http://localhost:*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your Vercel domain
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -43,17 +75,36 @@ model = None
 scaler = None
 model_metadata = {}
 
-# Database connection
-DATABASE_URL = os.getenv("DATABASE_URL", "postgres://neondb_owner:npg_0p2JovChjXZy@ep-misty-river-aba2zdk3-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require")
+# Database connection - Use secure config
+db = get_secure_db()
+
+# API Key validation
+async def verify_api_key(api_key: str = Depends(api_key_header)):
+    """Verify API key for protected endpoints"""
+    if api_key == API_KEY:
+        return True
+    raise HTTPException(
+        status_code=403,
+        detail="Invalid or missing API key"
+    )
 
 # Request/Response models
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class ModelAccessRequest(BaseModel):
+    password: str
+
 class PredictionRequest(BaseModel):
     home_team: str
     away_team: str
     features: Dict[str, float]
+    model_password: Optional[str] = None  # Required for model access
 
 class TrainingRequest(BaseModel):
     trigger: str = "manual"
+    model_password: str  # Required for training
     
 class PredictionResponse(BaseModel):
     prediction: str  # H, D, or A
@@ -115,21 +166,53 @@ async def root():
         "status": "online",
         "model_loaded": model is not None,
         "accuracy": model_metadata.get('accuracy', 0),
-        "api_version": "1.0.0"
+        "api_version": "1.0.0",
+        "authentication": "required",
+        "model_access": "password_protected"
+    }
+
+@app.post("/login")
+async def login(request: LoginRequest):
+    """Login to get access tokens"""
+    result = auth.authenticate_user(request.username, request.password)
+    if not result:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password"
+        )
+    return result
+
+@app.post("/verify-model-access")
+async def verify_model_access(request: ModelAccessRequest):
+    """Verify password for model access"""
+    if not auth.verify_model_access(request.password):
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid model access password"
+        )
+    
+    # Generate temporary access token for model
+    token = auth.create_access_token(
+        {"model_access": True},
+        expires_delta=timedelta(hours=1)
+    )
+    
+    return {
+        "access_granted": True,
+        "token": token,
+        "expires_in": 3600
     }
 
 @app.get("/health")
 async def health_check():
     """Detailed health check"""
     try:
-        # Check database connection
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM matches")
-        match_count = cur.fetchone()[0]
-        conn.close()
+        # Check database connection securely
+        result = db.execute_query("SELECT COUNT(*) as count FROM matches")
+        match_count = result[0]['count'] if result else 0
         db_status = "connected"
-    except:
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
         match_count = 0
         db_status = "disconnected"
     
@@ -148,8 +231,15 @@ async def health_check():
     }
 
 @app.post("/predict", response_model=PredictionResponse)
-async def predict_match(request: PredictionRequest):
-    """Make a match prediction"""
+async def predict_match(request: PredictionRequest, authorized: bool = Depends(verify_api_key)):
+    """Make a match prediction - requires model password"""
+    # Verify model access password
+    if not request.model_password or not auth.verify_model_access(request.model_password):
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid model access password. Please provide valid password."
+        )
+    
     if model is None or scaler is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
     
@@ -187,17 +277,16 @@ async def predict_match(request: PredictionRequest):
         # Get confidence
         confidence = float(np.max(probabilities))
         
-        # Log prediction to database
+        # Log prediction to database securely
         try:
-            conn = psycopg2.connect(DATABASE_URL)
-            cur = conn.cursor()
-            cur.execute("""
+            db.execute_update(
+                """
                 INSERT INTO predictions 
                 (home_team, away_team, predicted_result, confidence, created_at)
                 VALUES (%s, %s, %s, %s, NOW())
-            """, (request.home_team, request.away_team, result, confidence))
-            conn.commit()
-            conn.close()
+                """,
+                (request.home_team, request.away_team, result, confidence)
+            )
         except Exception as e:
             logger.error(f"Failed to log prediction: {e}")
         
@@ -216,62 +305,72 @@ async def predict_match(request: PredictionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/train")
-async def train_model(request: TrainingRequest):
-    """Trigger model training"""
+async def train_model(request: TrainingRequest, authorized: bool = Depends(verify_api_key)):
+    """Trigger real model training - requires model password"""
+    # Verify model access password
+    if not request.model_password or not auth.verify_model_access(request.model_password):
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid model access password. Training requires authentication."
+        )
+    
     try:
-        # Connect to database
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        # Import training module
+        from train_model import train_model_async
         
-        # Get training data
-        cur.execute("""
-            SELECT * FROM matches 
-            WHERE home_shots_on_target IS NOT NULL 
-            AND away_shots_on_target IS NOT NULL
-            ORDER BY match_date
-        """)
+        # Run actual training
+        logger.info("Starting real model training...")
         
-        matches = cur.fetchall()
-        conn.close()
+        # Define progress callback for SSE broadcasting
+        async def progress_callback(progress):
+            logger.info(f"Training progress: {progress['message']}")
+            # Broadcast to SSE clients
+            await sse_manager.broadcast_progress(progress)
         
-        if len(matches) < 1000:
-            raise HTTPException(status_code=400, detail="Not enough data for training")
+        # Run training with secure database
+        result = await train_model_async(
+            db=db,
+            config={'trigger': request.trigger},
+            progress_callback=progress_callback
+        )
         
-        # Here you would implement actual training logic
-        # For now, return mock success
-        return {
-            "status": "success",
-            "accuracy": 0.533,
-            "precision": 0.540,
-            "recall": 0.530,
-            "f1_score": 0.530,
-            "samples_processed": len(matches),
-            "training_time": 45.2,
-            "message": f"Model trained on {len(matches)} matches"
-        }
+        # Reload the newly trained model
+        global model, scaler, model_metadata
+        try:
+            with open('models/optimal_model.pkl', 'rb') as f:
+                model_data = pickle.load(f)
+                model = model_data.get('model')
+                scaler = model_data.get('scaler')
+                model_metadata = {
+                    'accuracy': model_data.get('test_accuracy', 0.533),
+                    'version': model_data.get('version', 'v1.0'),
+                    'timestamp': model_data.get('timestamp', datetime.now().isoformat())
+                }
+            logger.info(f"Model reloaded. New accuracy: {model_metadata['accuracy']:.1%}")
+        except Exception as e:
+            logger.error(f"Failed to reload model: {e}")
+        
+        return result
         
     except Exception as e:
         logger.error(f"Training failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/stats", response_model=StatsResponse)
-async def get_stats():
+async def get_stats(authorized: bool = Depends(verify_api_key)):
     """Get model statistics"""
     try:
-        # Get prediction stats from database
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        
-        cur.execute("""
+        # Get prediction stats from database securely
+        result = db.execute_query(
+            """
             SELECT 
                 COUNT(*) as total,
                 AVG(confidence) as avg_confidence
             FROM predictions
             WHERE created_at >= NOW() - INTERVAL '7 days'
-        """)
-        
-        stats = cur.fetchone()
-        conn.close()
+            """
+        )
+        stats = result[0] if result else {'total': 0, 'avg_confidence': 0}
         
         return StatsResponse(
             accuracy=model_metadata.get('accuracy', 0.533),
@@ -300,20 +399,20 @@ async def get_stats():
 async def get_recent_matches(limit: int = 10):
     """Get recent matches from database"""
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        # Validate limit to prevent abuse
+        limit = min(max(limit, 1), 100)
         
-        cur.execute("""
+        matches = db.execute_query(
+            """
             SELECT 
                 division, match_date, home_team, away_team,
                 home_goals, away_goals, result
             FROM matches
             ORDER BY match_date DESC
             LIMIT %s
-        """, (limit,))
-        
-        matches = cur.fetchall()
-        conn.close()
+            """,
+            (limit,)
+        )
         
         # Convert date objects to strings
         for match in matches:
@@ -325,6 +424,16 @@ async def get_recent_matches(limit: int = 10):
     except Exception as e:
         logger.error(f"Failed to get matches: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/training/progress")
+async def training_progress_endpoint(request: Request):
+    """SSE endpoint for real-time training progress"""
+    return await training_progress_stream(request)
+
+@app.get("/training/status")
+async def get_training_status():
+    """Get current training status"""
+    return sse_manager.get_current_progress()
 
 if __name__ == "__main__":
     import uvicorn

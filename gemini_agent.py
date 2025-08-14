@@ -3,24 +3,30 @@
 Self-Learning Agent with Google Gemini
 Continuous improvement system for football prediction model
 Temperature: 0.1 for maximum precision
+SECURITY: No hardcoded credentials
 """
 
 import os
+import sys
 import json
 import pickle
-import psycopg2
-from psycopg2.extras import RealDictCursor
 import numpy as np
 from datetime import datetime, timedelta
 import google.generativeai as genai
 from typing import Dict, List, Tuple, Any
 import logging
 
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from config.secure_config import get_config
+from config.secure_database import get_secure_db
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Configuration
-DATABASE_URL = "postgres://neondb_owner:npg_0p2JovChjXZy@ep-misty-river-aba2zdk3-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require"
+config = get_config()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")  # Set this environment variable
 MODEL_PATH = "models/optimal_model.pkl"
 IMPROVEMENT_THRESHOLD = 0.01  # 1% improvement required

@@ -2,18 +2,24 @@
 """
 Import Quality Football Data
 Replaces fake data with 40,000+ real matches from Football-Data.co.uk
+SECURITY: No hardcoded credentials
 """
 
 import pandas as pd
 import numpy as np
-import psycopg2
+import os
+import sys
 from datetime import datetime
 import logging
 
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from config.secure_config import get_config
+from config.secure_database import get_secure_db
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-DATABASE_URL = "postgres://neondb_owner:npg_0p2JovChjXZy@ep-misty-river-aba2zdk3-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require"
 
 def import_quality_data():
     """Import quality football data with real shots on target."""

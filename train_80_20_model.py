@@ -3,12 +3,13 @@
 80/20 Principle Football Prediction Model
 Achieves 70%+ accuracy with just 5 key features
 Clean, simple, data-driven approach
+SECURITY: No hardcoded credentials
 """
 
 import pandas as pd
 import numpy as np
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import os
+import sys
 from datetime import datetime
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
@@ -16,10 +17,14 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 import pickle
 import logging
 
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from config.secure_config import get_config
+from config.secure_database import get_secure_db
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-DATABASE_URL = "postgres://neondb_owner:npg_0p2JovChjXZy@ep-misty-river-aba2zdk3-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require"
 
 
 class CustomEloSystem:
