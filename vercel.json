@@ -8,16 +8,5 @@
     "GEMINI_TEMPERATURE": "0.1",
     "GEMINI_MODEL": "gemini-pro",
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "decisivis-dashboard/app/api/gemini/analyze/route.ts": {
-      "maxDuration": 30
-    },
-    "decisivis-dashboard/app/api/predict/route.ts": {
-      "maxDuration": 10
-    },
-    "decisivis-dashboard/app/api/train/route.ts": {
-      "maxDuration": 60
-    }
   }
 }
