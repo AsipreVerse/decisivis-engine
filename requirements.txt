@@ -3,7 +3,7 @@
 
 # Core ML
 scikit-learn==1.3.2
-numpy==1.24.3
+numpy==1.26.2
 pandas==2.1.4
 
 # Database
