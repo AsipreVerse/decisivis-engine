@@ -84,7 +84,12 @@ export default function TestingPage() {
         throw new Error('API connection failed')
       }
       
-      setMatches(apiData.matches)
+      // Filter for high-confidence predictions only (80%+)
+      const highConfidenceMatches = apiData.matches.filter(
+        (match: Match) => match.prediction.confidence_adjusted >= 80
+      )
+      
+      setMatches(highConfidenceMatches)
       setLastUpdated(new Date().toLocaleTimeString())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch matches')
@@ -107,33 +112,78 @@ export default function TestingPage() {
 
   if (!session) return null
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 80) return 'text-green-600 bg-green-50'
-    if (confidence >= 60) return 'text-yellow-600 bg-yellow-50'
-    return 'text-red-600 bg-red-50'
+  // BBC-style outcome description
+  const getOutcomeDescription = (match: Match) => {
+    const { home_win_prob, draw_prob, away_win_prob } = match.prediction
+    const highest = Math.max(home_win_prob, draw_prob, away_win_prob)
+    
+    if (home_win_prob === highest) {
+      return `${match.home_team} very likely to win`
+    } else if (away_win_prob === highest) {
+      return `${match.away_team} very likely to win`
+    } else {
+      return `Match likely to be drawn`
+    }
   }
 
-  const getEdgeColor = (edge: number) => {
-    if (edge >= 5) return 'text-green-600'
-    if (edge >= 2) return 'text-yellow-600'
-    return 'text-gray-600'
+  // Simple confidence indicator
+  const getConfidenceLevel = (confidence: number) => {
+    if (confidence >= 90) return { level: 'Very High', color: 'text-green-700 bg-green-100', icon: '🟢' }
+    if (confidence >= 85) return { level: 'High', color: 'text-green-600 bg-green-50', icon: '🟢' }
+    if (confidence >= 80) return { level: 'Good', color: 'text-blue-600 bg-blue-50', icon: '🔵' }
+    return { level: 'Moderate', color: 'text-yellow-600 bg-yellow-50', icon: '🟡' }
+  }
+
+  // Convert probability to simple odds explanation
+  const getSimpleOdds = (probability: number) => {
+    const outOf10 = Math.round(probability * 10)
+    return `${outOf10} out of 10 times`
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Security Warning */}
-      <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-        <p className="text-xs text-amber-800 dark:text-amber-200">
-          <strong>⚠️ TESTING ENVIRONMENT:</strong> This interface is for testing API functionality before OddSight integration.
-        </p>
+      {/* Responsible Gambling Notice */}
+      <div className="mb-6 space-y-4">
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg font-bold text-red-700 dark:text-red-300">18+</span>
+            <span className="text-sm font-medium text-red-700 dark:text-red-300">Age Restriction</span>
+          </div>
+          <p className="text-sm text-red-700 dark:text-red-300">
+            This service is restricted to users aged 18 and over. Gambling can be addictive.
+          </p>
+        </div>
+        
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">
+            Market Intelligence - For Informational Purposes Only
+          </h3>
+          <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+            <p>• This analysis is for educational and informational purposes only</p>
+            <p>• Not betting advice or gambling recommendations</p>
+            <p>• Past performance is not indicative of future results</p>
+            <p>• Please gamble responsibly and within your means</p>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-4 text-xs">
+            <a href="https://www.begambleaware.org" target="_blank" rel="noopener" 
+               className="text-blue-600 underline hover:text-blue-700">
+              BeGambleAware.org
+            </a>
+            <a href="https://www.gamcare.org.uk" target="_blank" rel="noopener"
+               className="text-blue-600 underline hover:text-blue-700">
+              GamCare Support
+            </a>
+            <span className="text-blue-700">Helpline: 0808 8020 133</span>
+          </div>
+        </div>
       </div>
 
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">API Testing Interface</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Match Analysis Dashboard</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Test time-filtered predictions and edge value calculations
+            Statistical analysis of football match outcomes - Most Likely Results Only
           </p>
         </div>
         <button
@@ -203,8 +253,9 @@ export default function TestingPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Available Matches</p>
+                  <p className="text-sm text-gray-600">Matches Analysed</p>
                   <p className="text-3xl font-bold">{matches.length}</p>
+                  <p className="text-xs text-gray-500 mt-1">High-confidence predictions only</p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-blue-500 opacity-20" />
               </div>
@@ -215,10 +266,11 @@ export default function TestingPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Avg Confidence</p>
+                  <p className="text-sm text-gray-600">Average Certainty</p>
                   <p className="text-3xl font-bold">
-                    {Math.round(matches.reduce((sum, m) => sum + m.prediction.confidence_adjusted, 0) / matches.length)}%
+                    {matches.length > 0 ? Math.round(matches.reduce((sum, m) => sum + m.prediction.confidence_adjusted, 0) / matches.length) : 0}%
                   </p>
+                  <p className="text-xs text-gray-500 mt-1">Statistical confidence</p>
                 </div>
                 <Target className="h-8 w-8 text-green-500 opacity-20" />
               </div>
@@ -229,12 +281,11 @@ export default function TestingPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Max Edge Value</p>
-                  <p className="text-3xl font-bold">
-                    {Math.max(...matches.map(m => m.prediction.edge_value)).toFixed(1)}%
-                  </p>
+                  <p className="text-sm text-gray-600">Time Window</p>
+                  <p className="text-3xl font-bold">{timeWindow}h</p>
+                  <p className="text-xs text-gray-500 mt-1">Next {timeWindow} hours</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-yellow-500 opacity-20" />
+                <Clock className="h-8 w-8 text-yellow-500 opacity-20" />
               </div>
             </CardContent>
           </Card>
@@ -243,10 +294,11 @@ export default function TestingPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">High Confidence</p>
+                  <p className="text-sm text-gray-600">Clear Outcomes</p>
                   <p className="text-3xl font-bold">
-                    {matches.filter(m => m.prediction.confidence_adjusted >= 80).length}
+                    {matches.filter(m => Math.max(m.prediction.home_win_prob, m.prediction.draw_prob, m.prediction.away_win_prob) >= 0.6).length}
                   </p>
+                  <p className="text-xs text-gray-500 mt-1">Likely results identified</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-purple-500 opacity-20" />
               </div>
@@ -276,91 +328,116 @@ export default function TestingPage() {
             </CardContent>
           </Card>
         ) : (
-          matches.map((match) => (
-            <Card key={match.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">
-                      {match.home_team} vs {match.away_team}
-                    </CardTitle>
-                    <p className="text-sm text-gray-600">
-                      {match.league} • {new Date(match.match_date).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getConfidenceColor(match.prediction.confidence_adjusted)}`}>
-                      {Math.round(match.prediction.confidence_adjusted)}% confidence
+          matches.map((match) => {
+            const confidence = getConfidenceLevel(match.prediction.confidence_adjusted)
+            return (
+              <Card key={match.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">
+                        {match.home_team} vs {match.away_team}
+                      </CardTitle>
+                      <p className="text-sm text-gray-600">
+                        {match.league} • {new Date(match.match_date).toLocaleString()}
+                      </p>
+                      <p className="text-sm font-medium text-blue-700 mt-1">
+                        {getOutcomeDescription(match)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${confidence.color}`}>
+                        <span className="mr-1">{confidence.icon}</span>
+                        {confidence.level} Certainty
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardHeader>
+                </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Predictions */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Statistical Analysis */}
                   <div>
                     <h4 className="font-medium mb-3 flex items-center gap-2">
                       <Target className="h-4 w-4" />
-                      Predictions
+                      Statistical Analysis
                     </h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Home Win:</span>
-                        <span className="font-medium">{(match.prediction.home_win_prob * 100).toFixed(1)}%</span>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">{match.home_team} to win:</span>
+                          <span className="font-medium">{getSimpleOdds(match.prediction.home_win_prob)}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full transition-all"
+                            style={{ width: `${match.prediction.home_win_prob * 100}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Draw:</span>
-                        <span className="font-medium">{(match.prediction.draw_prob * 100).toFixed(1)}%</span>
+                      
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Match ends in draw:</span>
+                          <span className="font-medium">{getSimpleOdds(match.prediction.draw_prob)}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div 
+                            className="bg-gray-500 h-2 rounded-full transition-all"
+                            style={{ width: `${match.prediction.draw_prob * 100}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Away Win:</span>
-                        <span className="font-medium">{(match.prediction.away_win_prob * 100).toFixed(1)}%</span>
+                      
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">{match.away_team} to win:</span>
+                          <span className="font-medium">{getSimpleOdds(match.prediction.away_win_prob)}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div 
+                            className="bg-red-500 h-2 rounded-full transition-all"
+                            style={{ width: `${match.prediction.away_win_prob * 100}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Odds */}
+                  {/* Match Context */}
                   <div>
                     <h4 className="font-medium mb-3 flex items-center gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      Market Odds
+                      <Activity className="h-4 w-4" />
+                      Match Context
                     </h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Home:</span>
-                        <span className="font-medium">{match.odds.home.toFixed(2)}</span>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="text-sm text-gray-600">Analysis Confidence</div>
+                        <div className="text-lg font-bold text-blue-700">
+                          {Math.round(match.prediction.confidence_adjusted)}% certain
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Based on historical data patterns
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Draw:</span>
-                        <span className="font-medium">{match.odds.draw.toFixed(2)}</span>
+                      
+                      <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="text-sm text-gray-600">Data Available Since</div>
+                        <div className="text-sm font-medium">
+                          {new Date(match.odds_available_since).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Sufficient data for analysis
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Away:</span>
-                        <span className="font-medium">{match.odds.away.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Value Analysis */}
-                  <div>
-                    <h4 className="font-medium mb-3 flex items-center gap-2">
-                      <Zap className="h-4 w-4" />
-                      Value Analysis
-                    </h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Edge Value:</span>
-                        <span className={`font-bold ${getEdgeColor(match.prediction.edge_value)}`}>
-                          +{match.prediction.edge_value.toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Recommended:</span>
-                        <span className="font-medium capitalize">{match.prediction.recommended_bet.replace('_', ' ')}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Market Confidence:</span>
-                        <span className="font-medium">{match.odds.market_confidence}%</span>
+                      
+                      <div className="p-3 bg-purple-50 rounded-lg">
+                        <div className="text-sm text-gray-600">Most Likely Outcome</div>
+                        <div className="text-sm font-medium capitalize">
+                          {match.prediction.recommended_bet.replace('_', ' ')} 
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Highest probability scenario
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -369,6 +446,48 @@ export default function TestingPage() {
             </Card>
           ))
         )}
+      </div>
+
+      {/* Footer Disclaimer */}
+      <div className="mt-8 p-6 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Important Information
+        </h3>
+        <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+          <p>
+            <strong>Educational Purpose:</strong> This analysis is provided for educational and informational purposes only. 
+            It is intended to demonstrate statistical modeling techniques and data analysis methodologies.
+          </p>
+          <p>
+            <strong>No Betting Advice:</strong> This service does not provide betting advice, tips, or gambling recommendations. 
+            All predictions are statistical estimates based on historical data and should not be used as the basis for any financial decisions.
+          </p>
+          <p>
+            <strong>Past Performance Warning:</strong> Past performance of statistical models is not indicative of future results. 
+            Football matches are unpredictable and influenced by many factors not captured in historical data.
+          </p>
+          <p>
+            <strong>Responsible Gambling:</strong> If you choose to gamble, please do so responsibly. 
+            Set limits, never bet more than you can afford to lose, and seek help if gambling becomes a problem.
+          </p>
+        </div>
+        <div className="mt-4 pt-4 border-t border-gray-300 dark:border-gray-600">
+          <div className="flex flex-wrap gap-6 text-xs text-gray-600 dark:text-gray-400">
+            <a href="https://www.begambleaware.org" target="_blank" rel="noopener" 
+               className="hover:text-blue-600 underline">
+              BeGambleAware.org
+            </a>
+            <a href="https://www.gamcare.org.uk" target="_blank" rel="noopener"
+               className="hover:text-blue-600 underline">
+              GamCare: 0808 8020 133
+            </a>
+            <a href="https://www.gamblingtherapy.org" target="_blank" rel="noopener"
+               className="hover:text-blue-600 underline">
+              Gambling Therapy
+            </a>
+            <span>Age Restriction: 18+</span>
+          </div>
+        </div>
       </div>
     </div>
   )
