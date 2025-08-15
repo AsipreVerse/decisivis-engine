@@ -10,7 +10,8 @@ import {
   Database,
   LogOut,
   Activity,
-  TestTube
+  TestTube,
+  Globe
 } from 'lucide-react'
 
 export default function Navigation() {
@@ -19,6 +20,7 @@ export default function Navigation() {
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/testing', label: 'API Testing', icon: TestTube },
+    { href: '/oddsight-landing', label: 'OddSight Demo', icon: Globe },
     { href: '/training', label: 'Training', icon: Brain },
     { href: '/predictions', label: 'Predictions', icon: Target },
     { href: '/data', label: 'Data Management', icon: Database },
