@@ -35,12 +35,12 @@ export default function ProtectedDashboard() {
   return (
     <div>
       {/* Security Header */}
-      <div className="bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800">
+      <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
+            <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
               <Shield className="h-4 w-4" />
-              <span>Secure Session • Logged in as: <strong>{session.user?.name}</strong></span>
+              <span>⚠️ CONFIDENTIAL • Proprietary System • User: <strong>{session.user?.name}</strong></span>
             </div>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}

@@ -113,18 +113,14 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              <strong>Security Notice:</strong> This dashboard contains sensitive prediction data and model controls. 
-              Unauthorized access is prohibited.
+          <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+            <p className="text-xs text-red-700 dark:text-red-300 font-medium">
+              <strong>⚠️ RESTRICTED ACCESS</strong>
             </p>
-            <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
-              <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                <strong>Demo Credentials:</strong><br />
-                Username: admin<br />
-                Password: Decisivis2025!
-              </p>
-            </div>
+            <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+              This dashboard contains sensitive prediction data and proprietary model controls. 
+              Unauthorized access is strictly prohibited and will be logged.
+            </p>
           </div>
         </CardContent>
       </Card>

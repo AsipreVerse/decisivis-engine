@@ -1,17 +1,19 @@
-# 🚀 Decisivis Dashboard - Deployment Guide
+# 🔒 Decisivis Dashboard - Private Deployment Guide
 
 ## 📦 Repository: Decisivis Dashboard (Frontend)
 
-This repository contains the Next.js dashboard for the Decisivis football prediction engine.
+**⚠️ RESTRICTED ACCESS - INTERNAL USE ONLY**
 
-### 🌐 Live URL
+This repository contains the proprietary Next.js dashboard for the Decisivis prediction system.
+
+### 🌐 Private URLs
 - **Production**: https://www.decisivis.com
 - **Alternative**: https://decisivis-engine.vercel.app
 
-### 🔐 Admin Credentials
+### 🔐 Access Control
 - **Login URL**: https://www.decisivis.com/login
-- **Username**: `admin`
-- **Password**: `Decisivis_Admin_0c77cc4e_2025!`
+- **Authorization**: Credentials distributed internally only
+- **Security**: All access is logged and monitored
 
 ---
 
