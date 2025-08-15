@@ -1,14 +1,7 @@
 {
-  "buildCommand": "cd decisivis-dashboard && npm run build",
-  "installCommand": "cd decisivis-dashboard && npm install --legacy-peer-deps",
-  "outputDirectory": "decisivis-dashboard/.next",
+  "rootDirectory": "decisivis-dashboard",
   "framework": "nextjs",
   "regions": ["iad1"],
-  "functions": {
-    "decisivis-dashboard/app/api/**/*.ts": {
-      "maxDuration": 30
-    }
-  },
   "env": {
     "PYTHON_API_URL": "@python_api_url",
     "NEXTAUTH_SECRET": "@nextauth_secret",
@@ -17,7 +10,7 @@
     "GEMINI_API_KEY": "@gemini_api_key",
     "API_KEY": "@api_key",
     "GEMINI_TEMPERATURE": "0.1",
-    "GEMINI_MODEL": "gemini-pro",
+    "GEMINI_MODEL": "gemini-2.5-flash",
     "NODE_ENV": "production"
   }
 }
