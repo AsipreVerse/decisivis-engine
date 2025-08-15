@@ -40,8 +40,8 @@ class SecureConfig:
         """Validate that required environment variables are set"""
         required = [
             'DATABASE_URL',
-            'API_KEY',
-            'NEXTAUTH_SECRET'
+            'API_KEY'
+            # NEXTAUTH_SECRET is only for frontend, not needed in Python API
         ]
         
         missing = []
@@ -91,7 +91,7 @@ class SecureConfig:
     @property
     def jwt_secret(self) -> str:
         """Get JWT secret for token generation"""
-        secret = os.getenv('JWT_SECRET') or os.getenv('NEXTAUTH_SECRET')
+        secret = os.getenv('JWT_SECRET')
         if not secret:
             import secrets
             secret = secrets.token_urlsafe(64)
