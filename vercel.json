@@ -1,5 +1,7 @@
 {
-  "rootDirectory": "decisivis-dashboard",
+  "buildCommand": "cd decisivis-dashboard && npm run build",
+  "installCommand": "cd decisivis-dashboard && npm install --legacy-peer-deps",
+  "outputDirectory": "decisivis-dashboard/.next",
   "framework": "nextjs",
   "regions": ["iad1"],
   "env": {
