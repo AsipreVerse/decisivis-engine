@@ -74,7 +74,7 @@ export default function TrainingPage() {
       }
 
       // Connect to SSE for real-time progress
-      const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_PYTHON_API_URL || 'https://web-production-d74c1.up.railway.app'}/training/progress`)
+      const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_PYTHON_API_URL || 'https://web-production-8eb98.up.railway.app'}/training/progress`)
       
       eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data)

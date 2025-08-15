@@ -27,7 +27,7 @@ NEXTAUTH_URL=https://www.decisivis.com
 NEXTAUTH_SECRET=cebae64f7b9394cc715a4280dae8f45c7dd65918bb17753d96f80d98aa8a7dcd
 
 # API Connection
-PYTHON_API_URL=https://web-production-d74c1.up.railway.app
+PYTHON_API_URL=https://web-production-8eb98.up.railway.app
 API_KEY=dk_57789019680181655a16f720697aa9a128fae577897975f6
 
 # Admin Credentials

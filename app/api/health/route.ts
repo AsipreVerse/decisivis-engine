@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const PYTHON_API_URL = process.env.PYTHON_API_URL || 'https://web-production-d74c1.up.railway.app'
+const PYTHON_API_URL = process.env.PYTHON_API_URL || 'https://web-production-8eb98.up.railway.app'
 
 export async function GET() {
   try {

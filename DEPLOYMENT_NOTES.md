@@ -5,7 +5,7 @@
 ## 🌐 Live URLs
 - **Production Dashboard**: https://www.decisivis.com
 - **Alternative URL**: https://decisivis-engine.vercel.app
-- **Python API**: https://web-production-d74c1.up.railway.app
+- **Python API**: https://web-production-8eb98.up.railway.app
 
 ## 🔐 Admin Login Credentials
 - **Dashboard URL**: https://www.decisivis.com/login
@@ -71,7 +71,7 @@ NEXTAUTH_URL=https://www.decisivis.com
 
 NEXTAUTH_SECRET=cebae64f7b9394cc715a4280dae8f45c7dd65918bb17753d96f80d98aa8a7dcd
 
-PYTHON_API_URL=https://web-production-d74c1.up.railway.app
+PYTHON_API_URL=https://web-production-8eb98.up.railway.app
 
 API_KEY=dk_57789019680181655a16f720697aa9a128fae577897975f6
 
@@ -197,7 +197,7 @@ uvicorn main:app --reload --port 8000
 1. ✅ Add remaining environment variables to Railway
 2. ✅ Add all environment variables to Vercel
 3. ✅ Test login at https://www.decisivis.com/login
-4. ✅ Verify API health at https://web-production-d74c1.up.railway.app/health
+4. ✅ Verify API health at https://web-production-8eb98.up.railway.app/health
 5. ✅ Make a test prediction
 
 ---
