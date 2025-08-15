@@ -1,5 +1,6 @@
 {
-  "buildCommand": "cd decisivis-dashboard && npm run build",
-  "installCommand": "cd decisivis-dashboard && npm install --legacy-peer-deps",
-  "outputDirectory": "decisivis-dashboard/.next"
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "outputDirectory": ".next"
 }
