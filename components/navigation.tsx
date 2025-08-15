@@ -9,7 +9,8 @@ import {
   Target,
   Database,
   LogOut,
-  Activity
+  Activity,
+  TestTube
 } from 'lucide-react'
 
 export default function Navigation() {
@@ -17,6 +18,7 @@ export default function Navigation() {
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/testing', label: 'API Testing', icon: TestTube },
     { href: '/training', label: 'Training', icon: Brain },
     { href: '/predictions', label: 'Predictions', icon: Target },
     { href: '/data', label: 'Data Management', icon: Database },
