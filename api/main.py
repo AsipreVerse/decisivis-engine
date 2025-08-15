@@ -26,19 +26,44 @@ import logging
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config.secure_config import get_config
-from config.secure_database import get_secure_db
-from config.auth import get_auth
-from sse_handler import sse_manager, training_progress_stream
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# API Security - Use secure config
-config = get_config()
-auth = get_auth()
-API_KEY = config.api_key
+# Lazy initialization to prevent startup failures
+config = None
+auth = None
+db = None
+API_KEY = None
+
+def initialize_config():
+    """Initialize configuration lazily"""
+    global config, auth, db, API_KEY
+    if config is None:
+        try:
+            from config.secure_config import get_config
+            from config.auth import get_auth
+            from config.secure_database import get_secure_db
+            
+            config = get_config()
+            auth = get_auth()
+            db = get_secure_db()
+            API_KEY = config.api_key
+            logger.info("Configuration initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize configuration: {e}")
+            # Use fallback values for health check
+            API_KEY = os.getenv('API_KEY', 'default_key')
+            raise
+
+# Import SSE handler
+try:
+    from sse_handler import sse_manager, training_progress_stream
+except ImportError:
+    sse_manager = None
+    training_progress_stream = None
+    logger.warning("SSE handler not available")
+
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 security = HTTPBearer(auto_error=False)
 
@@ -49,18 +74,31 @@ app = FastAPI(
     version="1.0.0"
 )
 
+@app.on_event("startup")
+async def startup_event():
+    """Log startup and try to initialize configuration"""
+    logger.info("Starting Decisivis Prediction API...")
+    logger.info(f"Port: {os.getenv('PORT', 'not set')}")
+    logger.info(f"Database URL: {'set' if os.getenv('DATABASE_URL') else 'not set'}")
+    logger.info(f"API Key: {'set' if os.getenv('API_KEY') else 'not set'}")
+    
+    try:
+        initialize_config()
+        logger.info("Configuration initialized successfully on startup")
+    except Exception as e:
+        logger.warning(f"Could not initialize configuration on startup: {e}")
+        logger.info("Service will run in degraded mode - health check available")
+
 # Enable CORS - Secure configuration
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://decisivis-engine.vercel.app",
-    "https://decisivis-dashboard.vercel.app"
+    "https://decisivis-dashboard.vercel.app",
+    "https://www.decisivis.com"
 ]
 
-# Never allow wildcard in production
-if config.is_production:
-    cors_origins = ALLOWED_ORIGINS
-else:
-    cors_origins = ALLOWED_ORIGINS + ["http://localhost:*"]
+# Allow broader CORS for now since config might not be initialized
+cors_origins = ALLOWED_ORIGINS + ["http://localhost:*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -75,12 +113,18 @@ model = None
 scaler = None
 model_metadata = {}
 
-# Database connection - Use secure config
-db = get_secure_db()
-
 # API Key validation
 async def verify_api_key(api_key: str = Depends(api_key_header)):
     """Verify API key for protected endpoints"""
+    # Initialize config if needed
+    try:
+        initialize_config()
+    except Exception:
+        # Allow health check to work without config
+        if api_key == os.getenv('API_KEY'):
+            return True
+        raise HTTPException(status_code=503, detail="Service not configured")
+    
     if api_key == API_KEY:
         return True
     raise HTTPException(
@@ -205,34 +249,59 @@ async def verify_model_access(request: ModelAccessRequest):
 
 @app.get("/health")
 async def health_check():
-    """Detailed health check"""
-    try:
-        # Check database connection securely
-        result = db.execute_query("SELECT COUNT(*) as count FROM matches")
-        match_count = result[0]['count'] if result else 0
-        db_status = "connected"
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        match_count = 0
-        db_status = "disconnected"
-    
-    return {
+    """Health check that works even without full configuration"""
+    health_status = {
         "status": "healthy",
-        "model": {
-            "loaded": model is not None,
-            "accuracy": model_metadata.get('accuracy', 0),
-            "version": model_metadata.get('version', 'unknown')
-        },
-        "database": {
-            "status": db_status,
-            "matches": match_count
-        },
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "checks": {}
     }
+    
+    # Check configuration
+    try:
+        initialize_config()
+        health_status["checks"]["config"] = "ok"
+    except Exception as e:
+        health_status["checks"]["config"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    # Check database if config is available
+    if db is not None:
+        try:
+            result = db.execute_query("SELECT COUNT(*) as count FROM matches")
+            match_count = result[0]['count'] if result else 0
+            health_status["checks"]["database"] = f"connected ({match_count} matches)"
+        except Exception as e:
+            health_status["checks"]["database"] = f"error: {str(e)}"
+            health_status["status"] = "degraded"
+    else:
+        health_status["checks"]["database"] = "not initialized"
+    
+    # Check model
+    health_status["checks"]["model"] = {
+        "loaded": model is not None,
+        "accuracy": model_metadata.get('accuracy', 0) if model_metadata else 0,
+        "version": model_metadata.get('version', 'unknown') if model_metadata else 'unknown'
+    }
+    
+    # Check environment variables
+    env_vars = {
+        "DATABASE_URL": "set" if os.getenv('DATABASE_URL') else "missing",
+        "API_KEY": "set" if os.getenv('API_KEY') else "missing",
+        "PORT": os.getenv('PORT', 'not set')
+    }
+    health_status["checks"]["environment"] = env_vars
+    
+    return health_status
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_match(request: PredictionRequest, authorized: bool = Depends(verify_api_key)):
     """Make a match prediction - requires model password"""
+    # Initialize config if needed
+    try:
+        initialize_config()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Service not configured: {str(e)}")
+    
     # Verify model access password
     if not request.model_password or not auth.verify_model_access(request.model_password):
         raise HTTPException(
