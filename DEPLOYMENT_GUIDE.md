@@ -34,7 +34,7 @@ ADMIN_PASSWORD_HASH=$2b$10$PbtY.hrvt2OqOAfJucNRbeNzSHAXsF/QTOM1sO7/Sloa7lta4mbve
 
 # AI Configuration
 GEMINI_API_KEY=AIzaSyBnHM9XMqYHJqevxqBqZJ6LFWkm03ugogw
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-2.5-flash
 GEMINI_TEMPERATURE=0.1
 
 # Model Access
