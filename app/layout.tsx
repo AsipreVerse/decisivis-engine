@@ -2,6 +2,8 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Providers } from './providers'
 import Navigation from '@/components/navigation'
+import Footer from '@/components/footer'
+import CookieConsent from '@/components/cookie-consent'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
@@ -18,11 +20,17 @@ export default async function RootLayout({
   const session = await getServerSession(authOptions)
   
   return (
-    <html lang="en">
-      <body className="bg-gray-50 dark:bg-gray-900">
+    <html lang="en" className="h-full">
+      <body className="h-full bg-gray-50 dark:bg-gray-900">
         <Providers>
-          {session && <Navigation />}
-          {children}
+          <div className="min-h-full flex flex-col">
+            {session && <Navigation />}
+            <main className="flex-grow">
+              {children}
+            </main>
+            <Footer />
+          </div>
+          <CookieConsent />
         </Providers>
       </body>
     </html>

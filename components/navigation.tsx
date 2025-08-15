@@ -11,7 +11,10 @@ import {
   LogOut,
   Activity,
   TestTube,
-  Globe
+  Globe,
+  CreditCard,
+  FileText,
+  Shield
 } from 'lucide-react'
 
 export default function Navigation() {
@@ -24,7 +27,8 @@ export default function Navigation() {
     { href: '/training', label: 'Training', icon: Brain },
     { href: '/predictions', label: 'Predictions', icon: Target },
     { href: '/data', label: 'Data Management', icon: Database },
-    { href: '/analytics', label: 'Analytics', icon: Activity }
+    { href: '/analytics', label: 'Analytics', icon: Activity },
+    { href: '/pricing', label: 'Pricing', icon: CreditCard }
   ]
 
   return (
